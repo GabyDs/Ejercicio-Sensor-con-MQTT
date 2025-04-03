@@ -90,9 +90,23 @@ def sub_cb(topic, msg, retained):
     elif topic.endswith("/destello"):
 
         """Procesa el mensaje para el tópico /destello."""
-        print("Comando de destello recibibo.")
+        # print("Comando de destello recibibo.")
+
+        """
+        El planificador convierte el 'coro' en una tarea y la pone en cola
+        para que se ejecute lo antes posible
+        """
+        asyncio.create_task(flash_led())
     else:
         print(f"No existe el topico: {topic}")
+
+
+# Función para parpadear el LED integrado
+async def flash_led():
+    """Parpadea el LED integrado durante 3 segundos."""
+    led.value(1)
+    await asyncio.sleep(3)
+    led.value(0)
 
 
 # Callback para manejar la conexión al broker MQTT
