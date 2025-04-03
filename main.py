@@ -29,13 +29,70 @@ async def wifi_han(state):
     """
     Muestra el estado de la conexión WiFi.
     """
-    print("WiFi is", "connected" if state else "disconnected")
+    print("WiFi ", "conectado" if state else "desconectado")
     await asyncio.sleep(1)
 
 
-async def messages(client):  # Respond to incoming messages
-    async for topic, msg, retained in client.queue:
-        print(topic.decode(), msg.decode(), retained)
+# Callback para manejar mensajes recibidos en los tópicos suscritos
+def sub_cb(topic, msg, retained):
+    """
+    Procesa los mensajes recibidos por MQTT y actualiza los parámetros.
+    """
+    global params
+    topic = topic.decode()
+    msg = msg.decode()
+    print(f"Mensaje recibido: {topic} -> {msg}")
+
+    # Cargamos el mensaje como JSON
+    msg_json = ujson.loads(msg)
+
+    # Procesar el mensaje según el tópico
+    if topic.endswith("/setpoint"):
+
+        """Procesa el mensaje para el tópico /periodo."""
+        if "setpoint" in msg_json:
+            params["setpoint"] = int(msg_json["setpoint"])
+            print(f"Setpoint actualizado a: {params['setpoint']}")
+        else:
+            print("No existe la clave.")
+
+    elif topic.endswith("/periodo"):
+
+        if "periodo" in msg_json:
+            new_periodo = int(msg_json["periodo"])
+            if new_periodo > 0:
+                params["periodo"] = new_periodo
+                print(f"Periodo actualizado a: {params['periodo']}")
+            else:
+                print("El periodo debe ser un numero positivo mayor a cero.")
+        else:
+            print("No existe la clave.")
+
+    elif topic.endswith("/modo"):
+
+        """Procesa el mensaje para el tópico /modo."""
+        if "modo" in msg_json and msg_json["modo"] in ["automatico", "manual"]:
+            params["modo"] = msg_json["modo"]
+            print(f"Modo actualizado a: {params['modo']}")
+        else:
+            print("No existe la clave.")
+
+    elif topic.endswith("/rele"):
+
+        """Procesa el mensaje para el tópico /rele."""
+        if "rele" in msg_json:
+            params["rele"] = int(msg_json["rele"])
+            relay.value(params["rele"])
+            print(f"Rele actualizado a: {params['rele']}")
+        else:
+            print("No existe la clave.")
+
+    elif topic.endswith("/destello"):
+
+        """Procesa el mensaje para el tópico /destello."""
+        print("Comando de destello recibibo.")
+    else:
+        print(f"No existe el topico: {topic}")
 
 
 # Callback para manejar la conexión al broker MQTT
@@ -53,7 +110,7 @@ async def conn_han(client):
 
     for topic in topics:
         await client.subscribe(topic, 1)
-        print(f"Subscribed to topic: {topic}")
+        print(f"Subscrito al topico: {topic}")
         await asyncio.sleep(0.5)
 
 
@@ -90,6 +147,7 @@ async def main(client):
         mensaje = ujson.dumps(data)
         # print(f"Publicando mensaje: {mensaje}")
         await client.publish(id, mensaje, qos=1)
+        await asyncio.sleep(10)
 
 
 # ---------- Funciones principales ----------
@@ -115,17 +173,30 @@ print(f"Device ID: {id}")
 
 config["ssid"] = SSID
 config["password"] = PASSWORD
+config["subs_cb"] = sub_cb
 config["server"] = config["server"]
 config["connect_coro"] = conn_han
 config["wifi_coro"] = wifi_han
-config["queue_len"] = 1  # Use event interface with default queue size
+config["ssl"] = True
+
 MQTTClient.DEBUG = True  # Optional: print diagnostic messages
 
 client = MQTTClient(config)
 
 # ---------- Configuracion del cliente MQTT ----------
 
-# Ejecucion del programa
+# ---------- Configuracion de los valores predeterminados ----------
+
+params = {
+    "setpoint": 25,  # Temperatura objetivo para el modo automático
+    "periodo": 10,  # Intervalo de publicación en segundos
+    "modo": "manual",  # Modo inicial: manual
+    "rele": 0,  # Estado inicial del relé (apagado)
+}
+
+# ---------- Configuracion de los valores predeterminados ----------
+
+# ---------- Ejecucion del programa ----------
 
 try:
     """
@@ -135,3 +206,5 @@ try:
     asyncio.run(main(client))
 finally:
     client.close()  # Prevent LmacRxBlk:1 errors
+
+# ---------- Ejecucion del programa ----------
