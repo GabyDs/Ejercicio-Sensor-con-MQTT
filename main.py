@@ -6,6 +6,9 @@ from machine import Pin, unique_id
 # Modulo para funcines asincronas
 import uasyncio as asyncio
 
+# Modulo para manejar archivos JSON
+import ujson
+
 # Modulo para comunicacion mediante MQTT
 from mqtt_as import MQTTClient
 from mqtt_local import config
@@ -35,13 +38,6 @@ async def messages(client):  # Respond to incoming messages
         print(topic.decode(), msg.decode(), retained)
 
 
-async def up(client):  # Respond to connectivity being (re)established
-    while True:
-        await client.up.wait()  # Wait on an Event
-        client.up.clear()
-        await client.subscribe("foo_topic", 1)  # renew subscriptions
-
-
 # Callback para manejar la conexión al broker MQTT
 async def conn_han(client):
     """
@@ -69,15 +65,31 @@ async def main(client):
     await client.connect()
     # print("BROKER conectado")
 
-    for coroutine in (up, messages):
-        asyncio.create_task(coroutine(client))
-        n = 0
-
     while True:
-        await asyncio.sleep(5)
-        # If WiFi is down the following will pause for the duration.
-        await client.publish(id, "{}".format(n), qos=1)
-        n += 1
+        # Lectura del sensor DHT11
+        # try:
+        #     sensor.measure()
+        #     temperatura = sensor.temperature()
+        #     humedad = sensor.humidity()
+        # except Exception as e:
+        #     print(f"Error reading DHT11 sensor: {e}")
+        #     temperatura = None
+        #     humedad = None
+
+        # Simular lectura de sensor
+        temperatura = 25
+        humedad = 50
+
+        # Crear el mensaje JSON con los datos
+        data = {
+            "temperatura": temperatura,
+            "humedad": humedad,
+        }
+
+        # Publicar los datos en el tópico MQTT
+        mensaje = ujson.dumps(data)
+        # print(f"Publicando mensaje: {mensaje}")
+        await client.publish(id, mensaje, qos=1)
 
 
 # ---------- Funciones principales ----------
