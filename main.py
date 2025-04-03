@@ -92,8 +92,8 @@ def sub_cb(topic, msg, retained):
         """Procesa el mensaje para el tópico /destello."""
         # print("Comando de destello recibibo.")
 
-        """
-        El planificador convierte el 'coro' en una tarea y la pone en cola
+        """Teoria
+        create_task: El planificador convierte el 'coro' en una tarea y la pone en cola
         para que se ejecute lo antes posible
         """
         asyncio.create_task(flash_led())
@@ -129,7 +129,7 @@ async def conn_han(client):
 
 
 async def main(client):
-    """
+    """Teoria
     await: Inicia la tarea lo antes posible. La tarea en espera
     se bloquea hasta que la tarea esperada se haya ejecutado por completo
     """
@@ -151,17 +151,34 @@ async def main(client):
         temperatura = 25
         humedad = 50
 
+        # Control automático del relé
+        if params["modo"] == "automatico":
+            # Tiene lógica invertida, se activa con un cero
+            relay.value(0 if temperatura >= params["setpoint"] else 1)
+            print("ENCENDIDO RELE")
+        else:
+            # A la vista del tiene que ser un 1 el significado de encendido
+            relay.value(int(not params["rele"]))
+            print("RELE MANUAL")
+
         # Crear el mensaje JSON con los datos
         data = {
             "temperatura": temperatura,
             "humedad": humedad,
+            "setpoint": params["setpoint"],
+            "periodo": params["periodo"],
+            "modo": params["modo"],
+            "rele": int(not relay.value()),
         }
 
         # Publicar los datos en el tópico MQTT
         mensaje = ujson.dumps(data)
         # print(f"Publicando mensaje: {mensaje}")
         await client.publish(id, mensaje, qos=1)
-        await asyncio.sleep(10)
+
+        # El periodo lo utilizamos para manejar el tiempo de publicacion
+        # en el broker
+        await asyncio.sleep(params["periodo"])
 
 
 # ---------- Funciones principales ----------
@@ -213,7 +230,7 @@ params = {
 # ---------- Ejecucion del programa ----------
 
 try:
-    """
+    """Teoria
     run: El planificador pone en la cola el 'coro' pasado para
     que se ejecute lo antes posible
     """
