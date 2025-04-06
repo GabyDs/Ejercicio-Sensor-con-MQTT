@@ -24,6 +24,30 @@ import dht
 # ---------- Funciones principales ----------
 
 
+# Función para cargar parámetros desde el archivo JSON
+def load_params():
+    try:
+        with open(PARAMS_FILE, "r") as f:
+            params = ujson.load(f)
+            print(f"Parametros cargados: {params}")
+            return params
+    except (OSError, ValueError):
+        print("No se puede cargar el archivos de parametros.")
+        print("Se utilizan los valores por defecto.")
+        save_params(DEFAULT_PARAMS)  # Crear el archivo si no existe
+        return DEFAULT_PARAMS.copy()
+
+
+# Función para guardar parámetros en el archivo JSON
+def save_params(params):
+    try:
+        with open(PARAMS_FILE, "w") as f:
+            ujson.dump(params, f)
+            print(f"Parametros guardados: {params}")
+    except OSError as e:
+        print(f"Error guardando parametros: {e}")
+
+
 # Callback para manejar el estado de la conexión WiFi
 async def wifi_han(state):
     """
@@ -218,12 +242,18 @@ client = MQTTClient(config)
 
 # ---------- Configuracion de los valores predeterminados ----------
 
-params = {
+# Archivo para almacenamiento no volátil
+PARAMS_FILE = "params.json"
+
+# Parámetros iniciales por defecto
+DEFAULT_PARAMS = {
     "setpoint": 25,  # Temperatura objetivo para el modo automático
     "periodo": 10,  # Intervalo de publicación en segundos
     "modo": "manual",  # Modo inicial: manual
     "rele": 0,  # Estado inicial del relé (apagado)
 }
+# Cargar los parámetros al inicio
+params = load_params()
 
 # ---------- Configuracion de los valores predeterminados ----------
 
