@@ -14,7 +14,7 @@ from mqtt_as import MQTTClient
 from mqtt_local import config
 
 # Datos de configuraciones
-from settings import SSID, PASSWORD, BROKER
+from settings import SSID, PASSWORD, PORT, MQTT_USER, MQTT_PASSWORD
 
 # Modulo del sensor
 import dht
@@ -227,12 +227,16 @@ id = "".join("{:02X}".format(b) for b in unique_id())
 print(f"Device ID: {id}")
 
 config["ssid"] = SSID
-config["password"] = PASSWORD
+config["wifi_pw"] = PASSWORD
 config["subs_cb"] = sub_cb
 config["server"] = config["server"]
+config["port"] = PORT
 config["connect_coro"] = conn_han
 config["wifi_coro"] = wifi_han
 config["ssl"] = True
+config["user"] = MQTT_USER
+config["password"] = MQTT_PASSWORD
+
 
 MQTTClient.DEBUG = True  # Optional: print diagnostic messages
 
