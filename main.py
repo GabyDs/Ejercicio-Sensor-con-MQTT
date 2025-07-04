@@ -9,6 +9,9 @@ import uasyncio as asyncio
 # Modulo para manejar archivos JSON
 import ujson
 
+# Modulo para numeros aleatorios
+import urandom
+
 # Modulo para comunicacion mediante MQTT
 from mqtt_as import MQTTClient
 from mqtt_local import config
@@ -76,6 +79,7 @@ def sub_cb(topic, msg, retained):
         """Procesa el mensaje para el tópico /periodo."""
         if "setpoint" in msg_json:
             params["setpoint"] = int(msg_json["setpoint"])
+            save_params(params)  # Guardar el nuevo setpoint
             print(f"Setpoint actualizado a: {params['setpoint']}")
         else:
             print("No existe la clave.")
@@ -86,6 +90,7 @@ def sub_cb(topic, msg, retained):
             new_periodo = int(msg_json["periodo"])
             if new_periodo > 0:
                 params["periodo"] = new_periodo
+                save_params(params)  # Guardar el nuevo periodo
                 print(f"Periodo actualizado a: {params['periodo']}")
             else:
                 print("El periodo debe ser un numero positivo mayor a cero.")
@@ -97,6 +102,7 @@ def sub_cb(topic, msg, retained):
         """Procesa el mensaje para el tópico /modo."""
         if "modo" in msg_json and msg_json["modo"] in ["automatico", "manual"]:
             params["modo"] = msg_json["modo"]
+            save_params(params)  # Guardar el nuevo modo
             print(f"Modo actualizado a: {params['modo']}")
         else:
             print("No existe la clave.")
@@ -106,6 +112,7 @@ def sub_cb(topic, msg, retained):
         """Procesa el mensaje para el tópico /rele."""
         if "rele" in msg_json:
             params["rele"] = int(msg_json["rele"])
+            save_params(params)  # Guardar el nuevo estado del relé
             relay.value(params["rele"])
             print(f"Rele actualizado a: {params['rele']}")
         else:
@@ -121,9 +128,25 @@ def sub_cb(topic, msg, retained):
         para que se ejecute lo antes posible
         """
         asyncio.create_task(flash_led())
+        
+    elif topic.endswith("/estado"):
+
+        """Procesa el mensaje para el tópico /estado."""
+        if "led" in msg_json:
+            led_value = int(msg_json["led"])
+            if led_value in (0, 1):
+                # Solo cambia si el valor es diferente
+                if led.value() != led_value:
+                    led.value(led_value)
+                    # Publica el nuevo estado solo si cambió
+                    asyncio.create_task(client.publish(f"{id}/estado", ujson.dumps({"estado": led_value}), qos=1))
+            else:
+                print("Estado del dispositivo no reconocido. Debe ser 0 o 1.")
+        else:
+            print("No existe la clave.")
+                
     else:
         print(f"No existe el topico: {topic}")
-
 
 # Función para parpadear el LED integrado
 async def flash_led():
@@ -144,6 +167,7 @@ async def conn_han(client):
         f"{id}/destello",
         f"{id}/modo",
         f"{id}/rele",
+        f"{id}/estado",
     ]
 
     for topic in topics:
@@ -151,12 +175,14 @@ async def conn_han(client):
         print(f"Subscrito al topico: {topic}")
         await asyncio.sleep(0.5)
 
+import network
 
 async def main(client):
     """Teoria
     await: Inicia la tarea lo antes posible. La tarea en espera
     se bloquea hasta que la tarea esperada se haya ejecutado por completo
     """
+
     await client.connect()
     # print("BROKER conectado")
 
@@ -171,9 +197,10 @@ async def main(client):
         #     temperatura = None
         #     humedad = None
 
-        # Simular lectura de sensor
-        temperatura = 25
-        humedad = 50
+        # Simular lectura de temperatura
+        temperatura = 25 + urandom.getrandbits(4)  # Temperatura entre 25 y 40 grados
+        # Simular lectura de humedad
+        humedad = 50 + urandom.getrandbits(4)  # Humedad entre 50 y 65%
 
         # Control automático del relé
         if params["modo"] == "automatico":
@@ -229,7 +256,6 @@ print(f"Device ID: {id}")
 config["ssid"] = SSID
 config["wifi_pw"] = PASSWORD
 config["subs_cb"] = sub_cb
-config["server"] = config["server"]
 config["port"] = PORT
 config["connect_coro"] = conn_han
 config["wifi_coro"] = wifi_han
@@ -252,7 +278,7 @@ PARAMS_FILE = "params.json"
 # Parámetros iniciales por defecto
 DEFAULT_PARAMS = {
     "setpoint": 25,  # Temperatura objetivo para el modo automático
-    "periodo": 10,  # Intervalo de publicación en segundos
+    "periodo": 60,  # Intervalo de publicación en segundos
     "modo": "manual",  # Modo inicial: manual
     "rele": 0,  # Estado inicial del relé (apagado)
 }
